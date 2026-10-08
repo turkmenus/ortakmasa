@@ -33,7 +33,7 @@ services:
       - ortakmasa_network
 
   minio:
-    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    image: cgr.dev/chainguard/minio:latest
     container_name: ortakmasa_minio
     restart: always
     environment:
@@ -47,8 +47,8 @@ services:
     entrypoint: sh
     command: -c 'mkdir -p /data/${S3_BUCKET:-ortakmasa} && minio server /data --address ":9000" --console-address ":9001"'
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
-      interval: 15s
+      test: ["CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/9000"]
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
