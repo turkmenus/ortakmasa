@@ -3,6 +3,7 @@ import { FastifyPluginCallback } from 'fastify';
 import { database } from '@colanode/server/data/database';
 import { accountAuthenticator } from '@colanode/server/api/client/plugins/account-auth';
 import { workspaceAuthenticator } from '@colanode/server/api/client/plugins/workspace-auth';
+import { patAuthenticator } from '@colanode/server/api/public/plugins/pat-auth';
 import { databaseRoutes } from '@colanode/server/api/public/routes/workspaces/databases';
 import { pageRoutes } from '@colanode/server/api/public/routes/workspaces/pages';
 import {
@@ -12,6 +13,34 @@ import {
 import { tokenRoutes } from '@colanode/server/api/public/routes/tokens';
 
 export const publicRoutes: FastifyPluginCallback = (instance, _, done) => {
+  instance.register((subInstance, __, subDone) => {
+    subInstance.register(patAuthenticator);
+    subInstance.get('/workspaces', async (request) => {
+      const accountId = request.pat?.accountId || request.account?.id;
+      const workspaces = await database
+        .selectFrom('workspaces')
+        .innerJoin('users', 'workspaces.id', 'users.workspace_id')
+        .select([
+          'workspaces.id as id',
+          'workspaces.name as name',
+          'workspaces.description as description',
+          'workspaces.avatar as avatar',
+          'workspaces.created_at as createdAt',
+          'users.id as userId',
+          'users.role as role',
+        ])
+        .where('users.account_id', '=', accountId)
+        .where('users.status', '=', 1)
+        .where('users.role', '!=', 'none')
+        .execute();
+
+      return {
+        workspaces,
+      };
+    });
+    subDone();
+  });
+
   instance.register((subInstance, __, subDone) => {
     subInstance.register(accountAuthenticator);
     subInstance.register(tokenRoutes, { prefix: '/tokens' });

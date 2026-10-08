@@ -6,6 +6,7 @@ import { buildTestApp } from '../helpers/app';
 import {
   createAccount,
   createDevice,
+  createUser,
   createWorkspace,
 } from '../helpers/seed';
 
@@ -24,6 +25,7 @@ describe('Token Endpoints (/client/v1/tokens)', () => {
     const account = await createAccount();
     const { token: sessionToken } = await createDevice({ accountId: account.id });
     const workspace = await createWorkspace({ createdBy: account.id });
+    await createUser({ workspaceId: workspace.id, account, role: 'owner' });
 
     // 1. Create token
     const createRes = await app.inject({
@@ -63,7 +65,23 @@ describe('Token Endpoints (/client/v1/tokens)', () => {
     expect(listBody.tokens[0].id).toBe(createdId);
     expect(listBody.tokens[0].name).toBe('Test MCP Token');
 
-    // 3. Delete / revoke token
+    // 4. Test GET /api/v1/workspaces with PAT token
+    const rawPatToken = createBody.token.token;
+    const workspacesRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/workspaces',
+      headers: {
+        authorization: `Bearer ${rawPatToken}`,
+      },
+    });
+
+    expect(workspacesRes.statusCode).toBe(200);
+    const workspacesBody = workspacesRes.json();
+    expect(workspacesBody.workspaces).toBeDefined();
+    expect(workspacesBody.workspaces.length).toBeGreaterThanOrEqual(1);
+    expect(workspacesBody.workspaces[0].id).toBe(workspace.id);
+
+    // 5. Delete / revoke token
     const deleteRes = await app.inject({
       method: 'DELETE',
       url: `/client/v1/tokens/${createdId}`,
@@ -74,7 +92,7 @@ describe('Token Endpoints (/client/v1/tokens)', () => {
 
     expect(deleteRes.statusCode).toBe(204);
 
-    // 4. Verify listed tokens is now empty
+    // 6. Verify listed tokens is now empty
     const listAfterDelete = await app.inject({
       method: 'GET',
       url: '/client/v1/tokens',

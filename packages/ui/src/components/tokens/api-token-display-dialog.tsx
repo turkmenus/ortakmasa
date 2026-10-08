@@ -110,6 +110,31 @@ export const ApiTokenDisplayDialog = ({
             </div>
           </div>
 
+          {token.workspaceId && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Workspace ID</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={token.workspaceId}
+                  className="font-mono text-xs select-all bg-muted/40"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    navigator.clipboard.writeText(token.workspaceId!);
+                    toast.success('Workspace ID copied to clipboard');
+                  }}
+                  title="Copy workspace ID"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">

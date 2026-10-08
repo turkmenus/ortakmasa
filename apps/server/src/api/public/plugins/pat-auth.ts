@@ -5,8 +5,11 @@ import { ApiErrorCode } from '@colanode/core';
 import { database } from '@colanode/server/data/database';
 import {
   parsePatToken,
+  parseToken,
   verifyPatToken,
+  verifyToken,
 } from '@colanode/server/lib/tokens';
+import { AccountContext } from '@colanode/server/types/api';
 
 export type PatContext = {
   tokenId: string;
@@ -18,6 +21,7 @@ export type PatContext = {
 declare module 'fastify' {
   interface FastifyRequest {
     pat: PatContext;
+    account: AccountContext;
   }
 }
 
@@ -28,6 +32,9 @@ const patAuthenticatorCallback: FastifyPluginCallback = (
 ) => {
   if (!fastify.hasRequestDecorator('pat')) {
     fastify.decorateRequest('pat');
+  }
+  if (!fastify.hasRequestDecorator('account')) {
+    fastify.decorateRequest('account');
   }
 
   fastify.addHook('onRequest', async (request, reply) => {
@@ -49,32 +56,68 @@ const patAuthenticatorCallback: FastifyPluginCallback = (
       });
     }
 
-    const tokenData = parsePatToken(token);
-    if (!tokenData) {
-      return reply.code(401).send({
-        code: ApiErrorCode.TokenInvalid,
-        message: 'Token is invalid or expired',
-      });
+    // Support PAT tokens (ort_ prefix)
+    if (token.startsWith('ort_')) {
+      const tokenData = parsePatToken(token);
+      if (!tokenData) {
+        return reply.code(401).send({
+          code: ApiErrorCode.TokenInvalid,
+          message: 'Token is invalid or expired',
+        });
+      }
+
+      const result = await verifyPatToken(tokenData);
+      if (!result.authenticated) {
+        return reply.code(401).send({
+          code: ApiErrorCode.TokenInvalid,
+          message: 'Token is invalid or expired',
+        });
+      }
+
+      await database
+        .updateTable('api_tokens')
+        .set({
+          last_used_at: new Date(),
+          updated_at: new Date(),
+        })
+        .where('id', '=', result.tokenId)
+        .execute();
+
+      request.pat = result;
+      request.account = { id: result.accountId, deviceId: 'pat' };
+      return;
     }
 
-    const result = await verifyPatToken(tokenData);
-    if (!result.authenticated) {
-      return reply.code(401).send({
-        code: ApiErrorCode.TokenInvalid,
-        message: 'Token is invalid or expired',
-      });
+    // Support standard session tokens (cnd_ prefix)
+    if (token.startsWith('cnd_')) {
+      const tokenData = parseToken(token);
+      if (!tokenData) {
+        return reply.code(401).send({
+          code: ApiErrorCode.TokenInvalid,
+          message: 'Token is invalid or expired',
+        });
+      }
+
+      const result = await verifyToken(tokenData);
+      if (!result.authenticated) {
+        return reply.code(401).send({
+          code: ApiErrorCode.TokenInvalid,
+          message: 'Token is invalid or expired',
+        });
+      }
+
+      request.account = result.account;
+      request.pat = {
+        tokenId: 'session',
+        accountId: result.account.id,
+      };
+      return;
     }
 
-    await database
-      .updateTable('api_tokens')
-      .set({
-        last_used_at: new Date(),
-        updated_at: new Date(),
-      })
-      .where('id', '=', result.tokenId)
-      .execute();
-
-    request.pat = result;
+    return reply.code(401).send({
+      code: ApiErrorCode.TokenInvalid,
+      message: 'Token format is unrecognized',
+    });
   });
 
   done();

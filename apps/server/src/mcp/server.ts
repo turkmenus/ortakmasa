@@ -103,6 +103,33 @@ const createMcpServer = (accountId: string): McpServer => {
     }
   );
 
+  // list_workspaces
+  server.tool(
+    'list_workspaces',
+    'List all workspaces accessible by the authenticated user with their IDs, names, and roles.',
+    {},
+    async () => {
+      const workspaces = await database
+        .selectFrom('workspaces')
+        .innerJoin('users', 'workspaces.id', 'users.workspace_id')
+        .select([
+          'workspaces.id as id',
+          'workspaces.name as name',
+          'workspaces.description as description',
+          'workspaces.avatar as avatar',
+          'workspaces.created_at as createdAt',
+          'users.id as userId',
+          'users.role as role',
+        ])
+        .where('users.account_id', '=', accountId)
+        .where('users.status', '=', 1)
+        .where('users.role', '!=', 'none')
+        .execute();
+
+      return successText(workspaces);
+    }
+  );
+
   // list_pages
   server.tool(
     'list_pages',

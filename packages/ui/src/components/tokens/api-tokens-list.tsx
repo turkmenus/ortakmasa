@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Key, Plus, Trash2 } from 'lucide-react';
+import { Copy, Key, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ApiToken } from '@colanode/client/types';
@@ -89,6 +89,29 @@ export const ApiTokensList = () => {
         </div>
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Create Token
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3 text-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Active Workspace ID:
+          </span>
+          <code className="font-mono text-xs font-semibold text-foreground select-all bg-background px-2 py-0.5 rounded border">
+            {workspace.workspaceId}
+          </code>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1.5"
+          onClick={() => {
+            navigator.clipboard.writeText(workspace.workspaceId);
+            toast.success('Workspace ID copied to clipboard');
+          }}
+        >
+          <Copy className="h-3.5 w-3.5" /> Copy ID
         </Button>
       </div>
 
