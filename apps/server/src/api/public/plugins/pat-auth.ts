@@ -8,14 +8,16 @@ import {
   verifyPatToken,
 } from '@colanode/server/lib/tokens';
 
+export type PatContext = {
+  tokenId: string;
+  accountId: string;
+  workspaceId?: string;
+  userId?: string;
+};
+
 declare module 'fastify' {
   interface FastifyRequest {
-    pat: {
-      tokenId: string;
-      accountId: string;
-      workspaceId?: string;
-      userId?: string;
-    };
+    pat: PatContext;
   }
 }
 
