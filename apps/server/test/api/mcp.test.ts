@@ -111,6 +111,38 @@ describe('MCP SSE routes (/mcp)', () => {
       message: 'No active MCP session found.',
     });
   });
+
+  it('authenticates via ?token= query parameter', async () => {
+    const account = await createAccount();
+    const tokenId = generateApiTokenId();
+    const pat = generatePatToken(tokenId);
+
+    await database
+      .insertInto('api_tokens')
+      .values({
+        id: pat.id,
+        account_id: account.id,
+        name: 'MCP Query Test Token',
+        token_hash: pat.hash,
+        token_salt: pat.salt,
+        scopes: JSON.stringify(['read', 'write']),
+        status: 1,
+        created_at: new Date(),
+      })
+      .execute();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/mcp?sessionId=non-existent-session&token=${pat.token}`,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      code: 'bad_request',
+      message: 'No active MCP session found.',
+    });
+  });
 });
 
 describe('MCP Node operations (pages, databases, records)', () => {

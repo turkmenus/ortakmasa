@@ -31,16 +31,16 @@ const patAuthenticatorCallback: FastifyPluginCallback = (
   }
 
   fastify.addHook('onRequest', async (request, reply) => {
-    const auth = request.headers.authorization;
-    if (!auth) {
-      return reply.code(401).send({
-        code: ApiErrorCode.TokenMissing,
-        message: 'No token provided',
-      });
-    }
+    let token: string | undefined;
 
-    const parts = auth.split(' ');
-    const token = parts.length === 2 ? parts[1] : parts[0];
+    const auth = request.headers.authorization;
+    if (auth) {
+      const parts = auth.split(' ');
+      token = parts.length === 2 ? parts[1] : parts[0];
+    } else if (request.query && typeof request.query === 'object') {
+      const query = request.query as Record<string, string>;
+      token = query.token || query.apiKey || query.pat;
+    }
 
     if (!token) {
       return reply.code(401).send({

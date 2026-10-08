@@ -16,6 +16,7 @@
     "clean": "del-cli dist isolate tsconfig.tsbuildinfo",
     "lint": "eslint . --max-warnings 0",
     "dev": "tsx watch --env-file .env src/index.ts",
+    "create-pat": "tsx src/scripts/create-pat.ts",
     "test": "vitest run --config vitest.config.ts"
   },
   "description": "",
