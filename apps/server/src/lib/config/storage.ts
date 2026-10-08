@@ -16,8 +16,19 @@ const s3StorageProviderConfigSchema = z.object({
   bucket: z
     .string({ error: 'Storage S3 bucket is required' })
     .transform(resolveConfigReference),
-  region: z.string({ error: 'Storage S3 region is required' }),
-  forcePathStyle: z.boolean().optional(),
+  region: z
+    .string({ error: 'Storage S3 region is required' })
+    .default('us-east-1')
+    .transform(resolveConfigReference),
+  forcePathStyle: z
+    .union([
+      z.boolean(),
+      z
+        .string()
+        .transform(resolveConfigReference)
+        .transform((val) => val === 'true' || val === '1'),
+    ])
+    .optional(),
 });
 
 const fileStorageProviderConfigSchema = z.object({
@@ -61,8 +72,28 @@ export const storageProviderConfigSchema = z
     gcsStorageProviderConfigSchema,
     azureStorageProviderConfigSchema,
   ])
-  .prefault({
-    type: 'file',
+  .prefault(() => {
+    if (
+      process.env.STORAGE_PROVIDER === 's3' ||
+      process.env.STORAGE_TYPE === 's3' ||
+      process.env.S3_ENDPOINT
+    ) {
+      return {
+        type: 's3',
+        endpoint: 'env://S3_ENDPOINT',
+        accessKey: 'env://S3_ACCESS_KEY',
+        secretKey: 'env://S3_SECRET_KEY',
+        bucket: 'env://S3_BUCKET',
+        region: process.env.S3_REGION ?? 'us-east-1',
+        forcePathStyle:
+          process.env.S3_FORCE_PATH_STYLE === 'true' ||
+          process.env.S3_FORCE_PATH_STYLE === '1',
+      };
+    }
+
+    return {
+      type: 'file',
+    };
   });
 
 export const tusLockerSchema = z

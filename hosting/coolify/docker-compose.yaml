@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: ortakmasa_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-colanode_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespass123}
+      POSTGRES_DB: ${POSTGRES_DB:-colanode_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-colanode_user} -d ${POSTGRES_DB:-colanode_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ortakmasa_network
+
+  valkey:
+    image: valkey/valkey:8.1
+    container_name: ortakmasa_valkey
+    restart: always
+    command: ["valkey-server", "--requirepass", "${REDIS_PASSWORD:-your_valkey_password}"]
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "${REDIS_PASSWORD:-your_valkey_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ortakmasa_network
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    container_name: ortakmasa_minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-your_minio_password}
+      MINIO_BROWSER: 'on'
+      MINIO_ADDRESS: ':9000'
+      MINIO_CONSOLE_ADDRESS: ':9001'
+    volumes:
+      - minio_data:/data
+    entrypoint: sh
+    command: -c 'mkdir -p /data/${S3_BUCKET:-ortakmasa} && minio server /data --address ":9000" --console-address ":9001"'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ortakmasa_network
+
+  server:
+    build:
+      context: ../../
+      dockerfile: apps/server/Dockerfile
+    container_name: ortakmasa_server
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      POSTGRES_URL: ${POSTGRES_URL:-postgres://${POSTGRES_USER:-colanode_user}:${POSTGRES_PASSWORD:-postgrespass123}@postgres:5432/${POSTGRES_DB:-colanode_db}}
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-your_valkey_password}@valkey:6379/0}
+      
+      # Storage S3 Configuration (MinIO by default, or external S3 / Cloudflare R2)
+      STORAGE_PROVIDER: s3
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-your_minio_password}
+      S3_BUCKET: ${S3_BUCKET:-ortakmasa}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+
+      # Domain configuration
+      APP_DOMAIN: ${APP_DOMAIN:-ortakmasa.192.168.1.101.nip.io}
+      APP_PROTOCOL: ${APP_PROTOCOL:-https}
+    expose:
+      - '3000'
+    networks:
+      - ortakmasa_network
+
+  web:
+    build:
+      context: ../../
+      dockerfile: apps/web/Dockerfile
+    container_name: ortakmasa_web
+    restart: always
+    depends_on:
+      - server
+    expose:
+      - '80'
+    ports:
+      - '${WEB_PORT:-80}:80'
+    networks:
+      - ortakmasa_network
+
+volumes:
+  postgres_data:
+  valkey_data:
+  minio_data:
+
+networks:
+  ortakmasa_network:
+    driver: bridge

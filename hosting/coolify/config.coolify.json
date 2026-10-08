@@ -1,0 +1,51 @@
+{
+  "_comment": "Ortakmasa Production Configuration for Coolify & S3",
+  "name": "Ortakmasa",
+  "web": {
+    "domain": "env://APP_DOMAIN",
+    "protocol": "env://APP_PROTOCOL"
+  },
+  "mode": "standalone",
+  "cors": {
+    "origin": "*",
+    "maxAge": 7200
+  },
+  "account": {
+    "verificationType": "automatic",
+    "otpTimeout": 600
+  },
+  "postgres": {
+    "url": "env://POSTGRES_URL"
+  },
+  "redis": {
+    "url": "env://REDIS_URL",
+    "db": 0,
+    "eventsChannel": "events"
+  },
+  "storage": {
+    "tus": {
+      "locker": {
+        "type": "redis",
+        "prefix": "colanode:tus:lock"
+      },
+      "cache": {
+        "type": "none"
+      }
+    },
+    "provider": {
+      "type": "s3",
+      "endpoint": "env://S3_ENDPOINT",
+      "accessKey": "env://S3_ACCESS_KEY",
+      "secretKey": "env://S3_SECRET_KEY",
+      "bucket": "env://S3_BUCKET",
+      "region": "env://S3_REGION",
+      "forcePathStyle": "env://S3_FORCE_PATH_STYLE"
+    }
+  },
+  "email": {
+    "enabled": false
+  },
+  "workspace": {
+    "maxFileSize": "524288000"
+  }
+}
