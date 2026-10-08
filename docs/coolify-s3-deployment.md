@@ -88,9 +88,9 @@ Docker Compose yığınında hazır gelen MinIO konteyneri kullanılır. Konteyn
 3. Repository olarak Ortakmasa GitHub reponuzu bağlayın.
 4. Compose dosya yolu olarak:
    ```
-   hosting/coolify/docker-compose.yaml
+   docker-compose.yaml
    ```
-   belirtin veya içeriği doğrudan Coolify compose editörüne yapıştırın.
+   (veya `hosting/coolify/docker-compose.yaml`) belirtin ya da içeriği doğrudan Coolify compose editörüne yapıştırın.
 5. **Environment Variables** bölümüne aşağıdaki değişkenleri girin (veya `hosting/coolify/.env.example` dosyasını kopyalayın):
 
 ```bash
