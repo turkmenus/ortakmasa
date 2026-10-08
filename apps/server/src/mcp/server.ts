@@ -108,7 +108,7 @@ const createMcpServer = (accountId: string): McpServer => {
     'list_pages',
     'List all pages in a workspace.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -124,8 +124,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'get_page',
     'Get details of a specific page.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      pageId: z.string().length(30).describe('Page ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      pageId: z.string().min(20).max(40).describe('Page ID'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -142,7 +142,7 @@ const createMcpServer = (accountId: string): McpServer => {
     'create_page',
     'Create a new page in a workspace.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       name: z.string().min(1).max(512).describe('Page name'),
       parentId: z.string().length(30).optional().describe('Optional parent page ID'),
       avatar: z.string().max(512).optional().describe('Optional avatar URL'),
@@ -188,8 +188,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'update_page',
     'Update an existing page.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      pageId: z.string().length(30).describe('Page ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      pageId: z.string().min(20).max(40).describe('Page ID'),
       name: z.string().min(1).max(512).optional().describe('New page name'),
       avatar: z
         .string()
@@ -242,7 +242,7 @@ const createMcpServer = (accountId: string): McpServer => {
     'list_databases',
     'List all databases in a workspace.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -258,8 +258,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'get_database',
     'Get details of a specific database.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      databaseId: z.string().length(30).describe('Database ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -276,7 +276,7 @@ const createMcpServer = (accountId: string): McpServer => {
     'create_database',
     'Create a new database in a workspace.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       name: z.string().min(1).max(512).describe('Database name'),
       parentId: z.string().length(30).optional().describe('Optional parent node ID'),
       avatar: z.string().max(512).optional().describe('Optional avatar URL'),
@@ -325,8 +325,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'list_records',
     'List records in a database.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      databaseId: z.string().length(30).describe('Database ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -354,8 +354,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'get_record',
     'Get details of a specific record.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      databaseId: z.string().length(30).describe('Database ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID'),
       recordId: z.string().length(30).describe('Record ID'),
     },
     async (args) => {
@@ -377,8 +377,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'create_record',
     'Create a new record in a database.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      databaseId: z.string().length(30).describe('Database ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID'),
       name: z.string().min(1).max(512).describe('Record name'),
       avatar: z.string().max(512).optional().describe('Optional avatar URL'),
       fields: z
@@ -426,8 +426,8 @@ const createMcpServer = (accountId: string): McpServer => {
     'update_record',
     'Update an existing record.',
     {
-      workspaceId: z.string().length(30).describe('Workspace ID'),
-      databaseId: z.string().length(30).describe('Database ID'),
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID'),
       recordId: z.string().length(30).describe('Record ID'),
       name: z.string().min(1).max(512).optional().describe('New record name'),
       avatar: z
@@ -492,15 +492,17 @@ export const mcpRoute: FastifyPluginCallback = (instance, _, done) => {
     }
 
     const accountId = request.pat.accountId;
-    const sessionId = crypto.randomUUID();
     const prefix = instance.prefix || '/mcp';
-    const postEndpoint = `${prefix}?sessionId=${sessionId}`;
+    const postEndpoint = `${prefix}?sessionId=placeholder`;
 
     const transport = new SSEServerTransport(postEndpoint, reply.raw);
-    mcpSessions.set(sessionId, transport);
+    // SSEServerTransport generates its own sessionId and rewrites the URL's
+    // query parameter. We must key our session map by transport.sessionId so
+    // that incoming POST requests can be routed to the correct transport.
+    mcpSessions.set(transport.sessionId, transport);
 
     reply.raw.on('close', () => {
-      mcpSessions.delete(sessionId);
+      mcpSessions.delete(transport.sessionId);
     });
 
     const server = createMcpServer(accountId);
