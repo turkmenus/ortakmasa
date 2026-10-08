@@ -298,7 +298,8 @@ Coolify'a taşınırken:
 | 5 | MCP server kurulumu (SSE) + PAT auth | 3-4 gün | ✅ Tamamlandı |
 | 6 | MCP tools: create/list/get/update page, database, record | 5-7 gün | ✅ Tamamlandı |
 | 7 | Coolify deploy config + S3 / MinIO entegrasyonu + test | 3-5 gün | ✅ Tamamlandı |
-| 8 | UI RAG asistan aktifleştirme (opsiyonel, sonraki aşama) | 5-7 gün | Planlandı |
+| 8 | Bearer / PAT UI yönetimi (Token oluşturma, listeleme, silme, MCP config kopyalama) | 2 gün | ✅ Tamamlandı |
+| 9 | UI RAG asistan aktifleştirme (opsiyonel, sonraki aşama) | 5-7 gün | Planlandı |
 
 **Toplam tahmini süre (MCP CRUD + public API + davetiye + deploy):** 4-6 hafta.
 
