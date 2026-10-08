@@ -97,8 +97,6 @@ services:
       - server
     expose:
       - '80'
-    ports:
-      - '${WEB_PORT:-80}:80'
     networks:
       - ortakmasa_network
 

@@ -97,7 +97,6 @@ Docker Compose yığınında hazır gelen MinIO konteyneri kullanılır. Konteyn
 # Domain ayarları
 APP_DOMAIN=ortakmasa.192.168.1.101.nip.io
 APP_PROTOCOL=https
-WEB_PORT=80
 
 # Veritabanı ve Önbellek
 POSTGRES_USER=colanode_user
