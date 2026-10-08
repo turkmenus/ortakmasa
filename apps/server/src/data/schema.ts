@@ -326,6 +326,26 @@ export type SelectApiToken = Selectable<ApiTokenTable>;
 export type CreateApiToken = Insertable<ApiTokenTable>;
 export type UpdateApiToken = Updateable<ApiTokenTable>;
 
+interface WorkspaceInvitationTable {
+  id: ColumnType<string, string, never>;
+  workspace_id: ColumnType<string, string, never>;
+  created_by: ColumnType<string, string, never>;
+  email: ColumnType<string | null, string | null, string | null>;
+  role: ColumnType<string, string, string>;
+  token_hash: ColumnType<string, string, string>;
+  token_salt: ColumnType<string, string, string>;
+  status: ColumnType<number, number, number>;
+  expires_at: ColumnType<Date | null, Date | null, Date>;
+  accepted_at: ColumnType<Date | null, Date | null, Date>;
+  accepted_by: ColumnType<string | null, string | null, string | null>;
+  created_at: ColumnType<Date, Date, never>;
+  updated_at: ColumnType<Date | null, Date | null, Date>;
+}
+
+export type SelectWorkspaceInvitation = Selectable<WorkspaceInvitationTable>;
+export type CreateWorkspaceInvitation = Insertable<WorkspaceInvitationTable>;
+export type UpdateWorkspaceInvitation = Updateable<WorkspaceInvitationTable>;
+
 export interface DatabaseSchema {
   accounts: AccountTable;
   devices: DeviceTable;
@@ -345,4 +365,5 @@ export interface DatabaseSchema {
   document_embeddings: DocumentEmbeddingTable;
   counters: CounterTable;
   api_tokens: ApiTokenTable;
+  workspace_invitations: WorkspaceInvitationTable;
 }

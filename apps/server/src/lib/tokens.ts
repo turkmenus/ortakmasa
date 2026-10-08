@@ -6,6 +6,7 @@ import { AccountContext } from '@colanode/server/types/api';
 
 const DEVICE_TOKEN_PREFIX = 'cnd_';
 const PAT_TOKEN_PREFIX = 'ort_';
+const INVITATION_TOKEN_PREFIX = 'oinv_';
 
 interface GenerateTokenResult {
   token: string;
@@ -122,6 +123,22 @@ export const generatePatToken = (tokenId: string): GeneratePatTokenResult => {
 export const generateApiTokenId = (): string => {
   // We use a 28-char id matching parsePatToken and Colanode 30-char varchar limits.
   return crypto.randomUUID().replace(/-/g, '').slice(0, 28);
+};
+
+export const generateInvitationToken = (
+  tokenId: string
+): GeneratePatTokenResult => {
+  const salt = uuid();
+  const secret = uuid() + uuid();
+  const hash = sha256(secret + salt);
+  const token = INVITATION_TOKEN_PREFIX + tokenId + secret;
+
+  return {
+    id: tokenId,
+    token,
+    salt,
+    hash,
+  };
 };
 
 export const parsePatToken = (token: string): PatTokenData | null => {
