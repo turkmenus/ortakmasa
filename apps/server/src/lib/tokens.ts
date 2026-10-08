@@ -5,6 +5,7 @@ import { uuid } from '@colanode/server/lib/utils';
 import { AccountContext } from '@colanode/server/types/api';
 
 const DEVICE_TOKEN_PREFIX = 'cnd_';
+const PAT_TOKEN_PREFIX = 'ort_';
 
 interface GenerateTokenResult {
   token: string;
@@ -17,6 +18,15 @@ interface TokenData {
   secret: string;
 }
 
+interface PatTokenData {
+  tokenId: string;
+  secret: string;
+}
+
+interface GeneratePatTokenResult extends GenerateTokenResult {
+  id: string;
+}
+
 type VerifyTokenResult =
   | {
       authenticated: false;
@@ -24,6 +34,18 @@ type VerifyTokenResult =
   | {
       authenticated: true;
       account: AccountContext;
+    };
+
+type VerifyPatTokenResult =
+  | {
+      authenticated: false;
+    }
+  | {
+      authenticated: true;
+      tokenId: string;
+      accountId: string;
+      workspaceId?: string;
+      userId?: string;
     };
 
 export const generateToken = (deviceId: string): GenerateTokenResult => {
@@ -80,6 +102,70 @@ export const verifyToken = async (
       id: device.account_id,
       deviceId: device.id,
     },
+  };
+};
+
+export const generatePatToken = (tokenId: string): GeneratePatTokenResult => {
+  const salt = uuid();
+  const secret = uuid() + uuid();
+  const hash = sha256(secret + salt);
+  const token = PAT_TOKEN_PREFIX + tokenId + secret;
+
+  return {
+    id: tokenId,
+    token,
+    salt,
+    hash,
+  };
+};
+
+export const generateApiTokenId = (): string => {
+  // We use a 28-char id matching parsePatToken and Colanode 30-char varchar limits.
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 28);
+};
+
+export const parsePatToken = (token: string): PatTokenData | null => {
+  if (!token.startsWith(PAT_TOKEN_PREFIX)) {
+    return null;
+  }
+
+  const tokenWithoutPrefix = token.slice(PAT_TOKEN_PREFIX.length);
+  const tokenId = tokenWithoutPrefix.slice(0, 28);
+  const secret = tokenWithoutPrefix.slice(28);
+  return {
+    tokenId,
+    secret,
+  };
+};
+
+export const verifyPatToken = async (
+  tokenData: PatTokenData
+): Promise<VerifyPatTokenResult> => {
+  const token = await database
+    .selectFrom('api_tokens')
+    .selectAll()
+    .where('id', '=', tokenData.tokenId)
+    .where('status', '=', 1)
+    .executeTakeFirst();
+
+  if (!token) {
+    return {
+      authenticated: false,
+    };
+  }
+
+  if (!verifySecret(tokenData.secret, token.token_salt, token.token_hash)) {
+    return {
+      authenticated: false,
+    };
+  }
+
+  return {
+    authenticated: true,
+    tokenId: token.id,
+    accountId: token.account_id,
+    workspaceId: token.workspace_id ?? undefined,
+    userId: token.user_id ?? undefined,
   };
 };
 

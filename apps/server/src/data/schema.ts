@@ -306,6 +306,26 @@ interface CounterTable {
   updated_at: ColumnType<Date | null, Date | null, Date | null>;
 }
 
+interface ApiTokenTable {
+  id: ColumnType<string, string, never>;
+  account_id: ColumnType<string, string, never>;
+  workspace_id: ColumnType<string | null, string | null, string | null>;
+  user_id: ColumnType<string | null, string | null, string | null>;
+  name: ColumnType<string, string, string>;
+  token_hash: ColumnType<string, string, string>;
+  token_salt: ColumnType<string, string, string>;
+  scopes: JSONColumnType<string[], string, string>;
+  status: ColumnType<number, number, number>;
+  last_used_at: ColumnType<Date | null, Date | null, Date>;
+  revoked_at: ColumnType<Date | null, Date | null, Date>;
+  created_at: ColumnType<Date, Date, never>;
+  updated_at: ColumnType<Date | null, Date | null, Date>;
+}
+
+export type SelectApiToken = Selectable<ApiTokenTable>;
+export type CreateApiToken = Insertable<ApiTokenTable>;
+export type UpdateApiToken = Updateable<ApiTokenTable>;
+
 export interface DatabaseSchema {
   accounts: AccountTable;
   devices: DeviceTable;
@@ -324,4 +344,5 @@ export interface DatabaseSchema {
   node_embeddings: NodeEmbeddingTable;
   document_embeddings: DocumentEmbeddingTable;
   counters: CounterTable;
+  api_tokens: ApiTokenTable;
 }
