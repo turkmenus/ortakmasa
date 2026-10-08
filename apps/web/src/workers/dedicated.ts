@@ -82,6 +82,12 @@ navigator.locks.request('colanode', async () => {
   if (isColanodeDomain(domain)) {
     await app.createServer(new URL('https://eu.colanode.com/config'));
     await app.createServer(new URL('https://us.colanode.com/config'));
+  } else {
+    try {
+      await app.createServer(new URL(`${self.location.origin}/config`));
+    } catch {
+      // Ignore if standalone server config cannot be auto-fetched
+    }
   }
 
   appInitOutput = 'success';

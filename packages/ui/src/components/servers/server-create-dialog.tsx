@@ -22,7 +22,9 @@ interface ServerCreateDialogProps {
 export const ServerCreateDialog = ({ onCancel }: ServerCreateDialogProps) => {
   const [open, setOpen] = useState(true);
   const { mutate, isPending } = useMutation();
-  const [url, setUrl] = useState('');
+  const defaultUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/config` : '';
+  const [url, setUrl] = useState(defaultUrl);
 
   return (
     <Dialog
@@ -40,7 +42,7 @@ export const ServerCreateDialog = ({ onCancel }: ServerCreateDialogProps) => {
         <div className="grow space-y-2 py-2 pb-4">
           <Label>Server URL</Label>
           <Input
-            placeholder="https://us.colanode.com/config"
+            placeholder={defaultUrl || 'https://us.colanode.com/config'}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
