@@ -36,6 +36,8 @@ import { ServerCreateMutationHandler } from './servers/server-create';
 import { ServerDeleteMutationHandler } from './servers/server-delete';
 import { ServerSyncMutationHandler } from './servers/server-sync';
 import { SpaceChildReorderMutationHandler } from './spaces/space-child-reorder';
+import { TokenCreateMutationHandler } from './tokens/token-create';
+import { TokenDeleteMutationHandler } from './tokens/token-delete';
 import { UserRoleUpdateMutationHandler } from './users/user-role-update';
 import { UserStorageUpdateMutationHandler } from './users/user-storage-update';
 import { UsersCreateMutationHandler } from './users/users-create';
@@ -92,5 +94,7 @@ export const buildMutationHandlerMap = (
     'tab.create': new TabCreateMutationHandler(app),
     'tab.update': new TabUpdateMutationHandler(app),
     'tab.delete': new TabDeleteMutationHandler(app),
+    'token.create': new TokenCreateMutationHandler(app),
+    'token.delete': new TokenDeleteMutationHandler(app),
   };
 };

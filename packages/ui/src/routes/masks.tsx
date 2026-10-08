@@ -99,6 +99,18 @@ export const accountSettingsRouteMask = createRouteMask({
   },
 });
 
+export const apiTokensRouteMask = createRouteMask({
+  routeTree: routeTree,
+  from: '/workspace/$userId/tokens',
+  to: '/$workspaceId/tokens',
+  params: (ctx) => {
+    const workspace = collections.workspaces.get(ctx.userId);
+    return {
+      workspaceId: workspace?.workspaceId ?? 'unknown',
+    };
+  },
+});
+
 export const accountLogoutRouteMask = createRouteMask({
   routeTree: routeTree,
   from: '/workspace/$userId/logout',
@@ -158,6 +170,7 @@ export const routeMasks = [
   workspaceUploadsRouteMask,
   workspaceDownloadsRouteMask,
   accountSettingsRouteMask,
+  apiTokensRouteMask,
   accountLogoutRouteMask,
   appAppearanceRouteMask,
   infoRouteMask,

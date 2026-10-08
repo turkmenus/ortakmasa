@@ -16,6 +16,10 @@ import {
   accountSettingsRoute,
 } from '@colanode/ui/routes/workspace/account';
 import {
+  apiTokensMaskRoute,
+  apiTokensRoute,
+} from '@colanode/ui/routes/workspace/tokens';
+import {
   appAppearanceMaskRoute,
   appAppearanceRoute,
 } from '@colanode/ui/routes/workspace/appearance';
@@ -64,6 +68,7 @@ export const routeTree = rootRoute.addChildren([
     workspaceUsersRoute,
     workspaceSettingsRoute,
     accountSettingsRoute,
+    apiTokensRoute,
     logoutRoute,
     infoRoute,
     appAppearanceRoute,
@@ -77,6 +82,7 @@ export const routeTree = rootRoute.addChildren([
     workspaceUploadsMaskRoute,
     workspaceDownloadsMaskRoute,
     accountSettingsMaskRoute,
+    apiTokensMaskRoute,
     logoutMaskRoute,
     infoMaskRoute,
     appAppearanceMaskRoute,
