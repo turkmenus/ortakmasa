@@ -6,16 +6,24 @@ import { z } from 'zod';
 import { ApiErrorCode } from '@colanode/core';
 import { patAuthenticator } from '@colanode/server/api/public/plugins/pat-auth';
 import {
+  appendPageContent,
   createDatabase,
+  createFolder,
   createPage,
   createRecord,
+  deleteDatabaseNode,
+  deletePage,
+  deleteRecord,
   getDatabase,
   getPage,
   getRecord,
   listDatabases,
   listPages,
   listRecords,
+  moveNode,
   requireCollaborator,
+  searchWorkspace,
+  updateDatabase,
   updatePage,
   updateRecord,
 } from '@colanode/server/mcp/nodes';
@@ -149,7 +157,7 @@ const createMcpServer = (accountId: string): McpServer => {
   // get_page
   server.tool(
     'get_page',
-    'Get details of a specific page.',
+    'Get details of a specific page, including its markdown content.',
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       pageId: z.string().min(20).max(40).describe('Page ID'),
@@ -167,7 +175,7 @@ const createMcpServer = (accountId: string): McpServer => {
   // create_page
   server.tool(
     'create_page',
-    'Create a new page in a workspace.',
+    'Create a new page in a workspace with optional markdown content.',
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       name: z.string().min(1).max(512).describe('Page name'),
@@ -178,6 +186,10 @@ const createMcpServer = (accountId: string): McpServer => {
         .default('private')
         .optional()
         .describe("Page visibility ('private' for workspace members only, 'public' for web accessible link)"),
+      content: z
+        .string()
+        .optional()
+        .describe('Initial markdown content of the page'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -192,6 +204,7 @@ const createMcpServer = (accountId: string): McpServer => {
         parentId: args.parentId,
         avatar: args.avatar,
         visibility: args.visibility,
+        content: args.content,
       });
 
       if (!result.ok) {
@@ -213,7 +226,7 @@ const createMcpServer = (accountId: string): McpServer => {
   // update_page
   server.tool(
     'update_page',
-    'Update an existing page.',
+    'Update an existing page title, avatar, visibility, or replace its markdown content.',
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       pageId: z.string().min(20).max(40).describe('Page ID'),
@@ -228,6 +241,10 @@ const createMcpServer = (accountId: string): McpServer => {
         .enum(['private', 'public'])
         .optional()
         .describe("Change page visibility ('private' or 'public')"),
+      content: z
+        .string()
+        .optional()
+        .describe('New markdown content to replace existing page content'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -245,6 +262,7 @@ const createMcpServer = (accountId: string): McpServer => {
           name: args.name,
           avatar: args.avatar,
           visibility: args.visibility,
+          content: args.content,
         }
       );
 
@@ -261,6 +279,84 @@ const createMcpServer = (accountId: string): McpServer => {
       }
 
       return successText(result.page);
+    }
+  );
+
+  // append_page_content
+  server.tool(
+    'append_page_content',
+    'Append markdown text to the end of a page.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      pageId: z.string().min(20).max(40).describe('Page ID'),
+      content: z.string().describe('Markdown text to append to the end of the page'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await appendPageContent(
+        args.workspaceId,
+        workspace.user.id,
+        args.pageId,
+        args.content
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText(result.page);
+    }
+  );
+
+  // delete_page
+  server.tool(
+    'delete_page',
+    'Delete a page and its subpages/content from the workspace.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      pageId: z.string().min(20).max(40).describe('Page ID to delete'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await deletePage(
+        args.workspaceId,
+        workspace.user.id,
+        args.pageId
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText({ success: true, message: 'Page deleted successfully.' });
     }
   );
 
@@ -501,6 +597,252 @@ const createMcpServer = (accountId: string): McpServer => {
       }
 
       return successText(result.record);
+    }
+  );
+
+  // delete_record
+  server.tool(
+    'delete_record',
+    'Delete a record from a database.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      recordId: z.string().min(20).max(40).describe('Record ID to delete'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await deleteRecord(
+        args.workspaceId,
+        workspace.user.id,
+        args.recordId
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText({
+        success: true,
+        message: 'Record deleted successfully.',
+      });
+    }
+  );
+
+  // update_database
+  server.tool(
+    'update_database',
+    'Update an existing database name, avatar, or field schema.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID'),
+      name: z.string().min(1).max(512).optional().describe('New database name'),
+      avatar: z
+        .string()
+        .max(512)
+        .optional()
+        .nullable()
+        .describe('New avatar URL or null to clear'),
+      fields: z
+        .record(z.string(), z.any())
+        .optional()
+        .describe('Updated field schema map'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await updateDatabase(
+        args.workspaceId,
+        workspace.user.id,
+        args.databaseId,
+        {
+          name: args.name,
+          avatar: args.avatar,
+          fields: args.fields,
+        }
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText(result.database);
+    }
+  );
+
+  // delete_database
+  server.tool(
+    'delete_database',
+    'Delete a database and all its records.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      databaseId: z.string().min(20).max(40).describe('Database ID to delete'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await deleteDatabaseNode(
+        args.workspaceId,
+        workspace.user.id,
+        args.databaseId
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText({
+        success: true,
+        message: 'Database deleted successfully.',
+      });
+    }
+  );
+
+  // create_folder
+  server.tool(
+    'create_folder',
+    'Create a folder in a workspace to organize pages and databases.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      name: z.string().min(1).max(512).describe('Folder name'),
+      parentId: z.string().min(20).max(40).optional().describe('Optional parent node ID'),
+      avatar: z.string().max(512).optional().describe('Optional avatar URL'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await createFolder(
+        args.workspaceId,
+        workspace.user.id,
+        {
+          name: args.name,
+          parentId: args.parentId,
+          avatar: args.avatar,
+        }
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText(result.folder);
+    }
+  );
+
+  // move_node
+  server.tool(
+    'move_node',
+    'Move a page, folder, or database to a new parent in the workspace hierarchy.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      nodeId: z.string().min(20).max(40).describe('Node ID to move'),
+      newParentId: z.string().min(20).max(40).describe('Target parent node ID'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      if (!requireCollaborator(workspace.user.role)) {
+        return forbiddenError();
+      }
+
+      const result = await moveNode(
+        args.workspaceId,
+        workspace.user.id,
+        args.nodeId,
+        args.newParentId
+      );
+
+      if (!result.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ error: result.error }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return successText(result.node);
+    }
+  );
+
+  // search_workspace
+  server.tool(
+    'search_workspace',
+    'Search workspace nodes and document content by keyword.',
+    {
+      workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
+      query: z.string().min(1).max(512).describe('Search term or phrase'),
+      type: z
+        .enum(['page', 'database', 'record', 'folder'])
+        .optional()
+        .describe('Optional node type filter'),
+    },
+    async (args) => {
+      const workspace = await resolveWorkspace(accountId, args.workspaceId);
+      if (!workspace) return workspaceNotFoundError();
+
+      const result = await searchWorkspace(
+        args.workspaceId,
+        args.query,
+        args.type
+      );
+
+      return successText(result);
     }
   );
 

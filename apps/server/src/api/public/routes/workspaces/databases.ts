@@ -5,10 +5,14 @@ import { generateId, hasWorkspaceRole, IdType, NodeType } from '@colanode/core';
 import { database } from '@colanode/server/data/database';
 import { SelectNode } from '@colanode/server/data/schema';
 import { createNode, mapNode, updateNode } from '@colanode/server/lib/nodes';
+import {
+  deleteDatabaseNode,
+  deleteRecord,
+} from '@colanode/server/mcp/nodes';
 
 const createDatabaseBodySchema = z.object({
   name: z.string().min(1).max(512),
-  parentId: z.string().length(30).optional(),
+  parentId: z.string().min(20).max(40).optional(),
   avatar: z.string().max(512).optional(),
   fields: z.record(z.string(), z.any()).optional(),
 });
@@ -238,6 +242,33 @@ export const databaseRoutes: FastifyPluginCallback = (instance, _, done) => {
     };
   });
 
+  instance.delete('/databases/:databaseId', async (request, reply) => {
+    const { databaseId } = request.params as { databaseId: string };
+    const workspace = request.workspace;
+
+    if (!requireCollaborator(workspace, reply)) {
+      return;
+    }
+
+    const result = await deleteDatabaseNode(
+      workspace.id,
+      workspace.user.id,
+      databaseId
+    );
+
+    if (!result.ok) {
+      return reply.code(404).send({
+        code: 'not_found',
+        message: result.error,
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Database deleted successfully.',
+    };
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // RECORDS
   // ─────────────────────────────────────────────────────────────────────────
@@ -444,6 +475,39 @@ export const databaseRoutes: FastifyPluginCallback = (instance, _, done) => {
           databaseId,
           fields: attrs?.fields ?? {},
         }),
+      };
+    }
+  );
+
+  instance.delete(
+    '/databases/:databaseId/records/:recordId',
+    async (request, reply) => {
+      const { recordId } = request.params as {
+        databaseId: string;
+        recordId: string;
+      };
+      const workspace = request.workspace;
+
+      if (!requireCollaborator(workspace, reply)) {
+        return;
+      }
+
+      const result = await deleteRecord(
+        workspace.id,
+        workspace.user.id,
+        recordId
+      );
+
+      if (!result.ok) {
+        return reply.code(404).send({
+          code: 'not_found',
+          message: result.error,
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Record deleted successfully.',
       };
     }
   );

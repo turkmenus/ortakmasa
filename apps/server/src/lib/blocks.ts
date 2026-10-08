@@ -337,3 +337,293 @@ export const generateInitialMessageBlocks = (
 
   return { [messageBlock.id]: messageBlock };
 };
+
+export const markdownToBlocks = (
+  parentId: string,
+  markdown: string,
+  startIndex?: string
+): Record<string, Block> => {
+  const blocks: Record<string, Block> = {};
+  let prevIndex: string | undefined = startIndex;
+
+  const lines = markdown.split('\n');
+  let i = 0;
+
+  let activeTaskList: Block | null = null;
+
+  while (i < lines.length) {
+    const rawLine = lines[i]!;
+
+    // 1. Code blocks (```language ... ```)
+    if (rawLine.trim().startsWith('```')) {
+      activeTaskList = null;
+      const lang = rawLine.trim().slice(3).trim();
+      i++;
+      const codeLines: string[] = [];
+      while (i < lines.length && !lines[i]!.trim().startsWith('```')) {
+        codeLines.push(lines[i]!);
+        i++;
+      }
+      i++; // Skip closing ```
+
+      const blockId = generateId(IdType.Block);
+      const index = generateFractionalIndex(prevIndex);
+      prevIndex = index;
+
+      blocks[blockId] = {
+        id: blockId,
+        type: 'codeBlock',
+        parentId,
+        index,
+        attrs: lang ? { language: lang } : null,
+        content: [{ type: 'text', text: codeLines.join('\n') }],
+      };
+      continue;
+    }
+
+    const trimmed = rawLine.trim();
+
+    // 2. Empty lines
+    if (!trimmed) {
+      activeTaskList = null;
+      i++;
+      continue;
+    }
+
+    // 3. Headings
+    if (trimmed.startsWith('# ')) {
+      activeTaskList = null;
+      const blockId = generateId(IdType.Block);
+      const index = generateFractionalIndex(prevIndex);
+      prevIndex = index;
+
+      blocks[blockId] = {
+        id: blockId,
+        type: 'heading1',
+        parentId,
+        index,
+        content: parseInlineLeaves(trimmed.slice(2)),
+      };
+      i++;
+      continue;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      activeTaskList = null;
+      const blockId = generateId(IdType.Block);
+      const index = generateFractionalIndex(prevIndex);
+      prevIndex = index;
+
+      blocks[blockId] = {
+        id: blockId,
+        type: 'heading2',
+        parentId,
+        index,
+        content: parseInlineLeaves(trimmed.slice(3)),
+      };
+      i++;
+      continue;
+    }
+
+    if (trimmed.startsWith('### ')) {
+      activeTaskList = null;
+      const blockId = generateId(IdType.Block);
+      const index = generateFractionalIndex(prevIndex);
+      prevIndex = index;
+
+      blocks[blockId] = {
+        id: blockId,
+        type: 'heading3',
+        parentId,
+        index,
+        content: parseInlineLeaves(trimmed.slice(4)),
+      };
+      i++;
+      continue;
+    }
+
+    // 4. Blockquotes
+    if (trimmed.startsWith('> ') || trimmed === '>') {
+      activeTaskList = null;
+      const blockquoteId = generateId(IdType.Block);
+      const index = generateFractionalIndex(prevIndex);
+      prevIndex = index;
+
+      blocks[blockquoteId] = {
+        id: blockquoteId,
+        type: 'blockquote',
+        parentId,
+        index,
+      };
+
+      const innerParagraphId = generateId(IdType.Block);
+      blocks[innerParagraphId] = {
+        id: innerParagraphId,
+        type: 'paragraph',
+        parentId: blockquoteId,
+        index: generateFractionalIndex(),
+        content: parseInlineLeaves(trimmed.slice(2)),
+      };
+
+      i++;
+      continue;
+    }
+
+    // 5. Task items (- [ ] or - [x])
+    const taskMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+    if (taskMatch) {
+      if (!activeTaskList) {
+        const taskListId = generateId(IdType.Block);
+        const index = generateFractionalIndex(prevIndex);
+        prevIndex = index;
+        activeTaskList = {
+          id: taskListId,
+          type: 'taskList',
+          parentId,
+          index,
+          content: [],
+        };
+        blocks[taskListId] = activeTaskList;
+      }
+
+      const isChecked = taskMatch[1]?.toLowerCase() === 'x';
+      const text = taskMatch[2] || '';
+
+      const taskItemId = generateId(IdType.Block);
+      const taskIndex = generateFractionalIndex();
+      blocks[taskItemId] = {
+        id: taskItemId,
+        type: 'taskItem',
+        parentId: activeTaskList.id,
+        index: taskIndex,
+        attrs: { checked: isChecked },
+      };
+
+      const pId = generateId(IdType.Block);
+      blocks[pId] = {
+        id: pId,
+        type: 'paragraph',
+        parentId: taskItemId,
+        index: generateFractionalIndex(),
+        content: parseInlineLeaves(text),
+      };
+
+      i++;
+      continue;
+    }
+
+    // 6. Bullet list (- or *)
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      activeTaskList = null;
+      const blockId = generateId(IdType.Block);
+      const index = generateFractionalIndex(prevIndex);
+      prevIndex = index;
+
+      blocks[blockId] = {
+        id: blockId,
+        type: 'paragraph',
+        parentId,
+        index,
+        content: parseInlineLeaves(`• ${trimmed.slice(2)}`),
+      };
+      i++;
+      continue;
+    }
+
+    // 7. Regular paragraph
+    activeTaskList = null;
+    const blockId = generateId(IdType.Block);
+    const index = generateFractionalIndex(prevIndex);
+    prevIndex = index;
+
+    blocks[blockId] = {
+      id: blockId,
+      type: 'paragraph',
+      parentId,
+      index,
+      content: parseInlineLeaves(rawLine),
+    };
+    i++;
+  }
+
+  return blocks;
+};
+
+const parseInlineLeaves = (text: string) => {
+  if (!text) return [];
+  // For simplicity and robust parsing, return text leaf.
+  // Advanced marks can be preserved if needed.
+  return [{ type: 'text', text }];
+};
+
+export const blocksToMarkdown = (
+  parentId: string,
+  blocks?: Record<string, Block> | null
+): string => {
+  if (!blocks || Object.keys(blocks).length === 0) {
+    return '';
+  }
+
+  // Find root-level blocks under parentId sorted by index
+  const rootBlocks = Object.values(blocks)
+    .filter((b) => b.parentId === parentId)
+    .sort((a, b) => a.index.localeCompare(b.index));
+
+  const extractText = (block: Block): string => {
+    if (!block.content || block.content.length === 0) {
+      return '';
+    }
+    return block.content
+      .map((leaf) => leaf.text || '')
+      .join('');
+  };
+
+  const output: string[] = [];
+
+  for (const block of rootBlocks) {
+    switch (block.type) {
+      case 'heading1':
+        output.push(`# ${extractText(block)}\n`);
+        break;
+      case 'heading2':
+        output.push(`## ${extractText(block)}\n`);
+        break;
+      case 'heading3':
+        output.push(`### ${extractText(block)}\n`);
+        break;
+      case 'codeBlock':
+        output.push(`\`\`\`${(block.attrs?.language as string) || ''}\n${extractText(block)}\n\`\`\`\n`);
+        break;
+      case 'blockquote': {
+        const children = Object.values(blocks)
+          .filter((b) => b.parentId === block.id)
+          .sort((a, b) => a.index.localeCompare(b.index));
+        const quoteText = children.map(extractText).join('\n') || extractText(block);
+        output.push(`> ${quoteText}\n`);
+        break;
+      }
+      case 'taskList': {
+        const taskItems = Object.values(blocks)
+          .filter((b) => b.parentId === block.id)
+          .sort((a, b) => a.index.localeCompare(b.index));
+        for (const item of taskItems) {
+          const checked = item.attrs?.checked ? 'x' : ' ';
+          const innerP = Object.values(blocks)
+            .filter((b) => b.parentId === item.id)
+            .sort((a, b) => a.index.localeCompare(b.index));
+          const text = innerP.map(extractText).join(' ') || extractText(item);
+          output.push(`- [${checked}] ${text}`);
+        }
+        output.push('');
+        break;
+      }
+      case 'paragraph':
+      default:
+        output.push(`${extractText(block)}\n`);
+        break;
+    }
+  }
+
+  return output.join('\n').trim();
+};
+

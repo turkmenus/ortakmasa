@@ -6,6 +6,7 @@ import { workspaceAuthenticator } from '@colanode/server/api/client/plugins/work
 import { patAuthenticator } from '@colanode/server/api/public/plugins/pat-auth';
 import { databaseRoutes } from '@colanode/server/api/public/routes/workspaces/databases';
 import { pageRoutes } from '@colanode/server/api/public/routes/workspaces/pages';
+import { searchRoutes } from '@colanode/server/api/public/routes/workspaces/search';
 import {
   acceptInvitationRoute,
   invitationRoutes,
@@ -51,16 +52,23 @@ export const publicRoutes: FastifyPluginCallback = (instance, _, done) => {
   });
 
   instance.register((subInstance, __, subDone) => {
-    subInstance.register(accountAuthenticator);
+    subInstance.register(patAuthenticator);
     subInstance.register(workspaceAuthenticator);
     subInstance.register(pageRoutes, { prefix: '/workspaces/:workspaceId/pages' });
     subDone();
   });
 
   instance.register((subInstance, __, subDone) => {
-    subInstance.register(accountAuthenticator);
+    subInstance.register(patAuthenticator);
     subInstance.register(workspaceAuthenticator);
     subInstance.register(databaseRoutes, { prefix: '/workspaces/:workspaceId' });
+    subDone();
+  });
+
+  instance.register((subInstance, __, subDone) => {
+    subInstance.register(patAuthenticator);
+    subInstance.register(workspaceAuthenticator);
+    subInstance.register(searchRoutes, { prefix: '/workspaces/:workspaceId' });
     subDone();
   });
 
