@@ -144,7 +144,7 @@ const createMcpServer = (accountId: string): McpServer => {
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       name: z.string().min(1).max(512).describe('Page name'),
-      parentId: z.string().length(30).optional().describe('Optional parent page ID'),
+      parentId: z.string().min(20).max(40).optional().describe('Optional parent page ID'),
       avatar: z.string().max(512).optional().describe('Optional avatar URL'),
       visibility: z
         .enum(['private', 'public'])
@@ -278,7 +278,7 @@ const createMcpServer = (accountId: string): McpServer => {
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       name: z.string().min(1).max(512).describe('Database name'),
-      parentId: z.string().length(30).optional().describe('Optional parent node ID'),
+      parentId: z.string().min(20).max(40).optional().describe('Optional parent node ID'),
       avatar: z.string().max(512).optional().describe('Optional avatar URL'),
       fields: z
         .record(z.string(), z.any())
@@ -356,7 +356,7 @@ const createMcpServer = (accountId: string): McpServer => {
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       databaseId: z.string().min(20).max(40).describe('Database ID'),
-      recordId: z.string().length(30).describe('Record ID'),
+      recordId: z.string().min(20).max(40).describe('Record ID'),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -428,7 +428,7 @@ const createMcpServer = (accountId: string): McpServer => {
     {
       workspaceId: z.string().min(20).max(40).describe('Workspace ID'),
       databaseId: z.string().min(20).max(40).describe('Database ID'),
-      recordId: z.string().length(30).describe('Record ID'),
+      recordId: z.string().min(20).max(40).describe('Record ID'),
       name: z.string().min(1).max(512).optional().describe('New record name'),
       avatar: z
         .string()
