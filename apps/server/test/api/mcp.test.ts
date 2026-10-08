@@ -145,14 +145,66 @@ describe('MCP Node operations (pages, databases, records)', () => {
       expect(fetched.page.name).toBe('Project Roadmap');
     }
 
-    // Update page
+    // Update page to public
     const updated = await updatePage(workspace.id, user.id, created.page.id as string, {
       name: 'Updated Roadmap',
+      visibility: 'public',
     });
     expect(updated.ok).toBe(true);
     if (updated.ok) {
       expect(updated.page.name).toBe('Updated Roadmap');
+      expect(updated.page.visibility).toBe('public');
+      expect(updated.page.isPublic).toBe(true);
     }
+  });
+
+  it('controls unauthenticated web access via private/public visibility', async () => {
+    const account = await createAccount();
+    const workspace = await createWorkspace({ createdBy: account.id });
+    const user = await createUser({
+      workspaceId: workspace.id,
+      account,
+      role: 'owner',
+    });
+
+    // 1. Create default private page
+    const privatePage = await createPage(workspace.id, user.id, {
+      name: 'Internal Secret Doc',
+      visibility: 'private',
+    });
+    expect(privatePage.ok).toBe(true);
+    if (!privatePage.ok) return;
+
+    // Unauthenticated GET /api/v1/p/:id on private page should be 403
+    const privateResponse = await app.inject({
+      method: 'GET',
+      url: `/api/v1/p/${privatePage.page.id}`,
+    });
+    expect(privateResponse.statusCode).toBe(403);
+    expect(privateResponse.json()).toMatchObject({
+      code: 'forbidden',
+      message: 'This page is private.',
+    });
+
+    // 2. Update page to public
+    const makePublic = await updatePage(
+      workspace.id,
+      user.id,
+      privatePage.page.id as string,
+      { visibility: 'public' }
+    );
+    expect(makePublic.ok).toBe(true);
+
+    // Unauthenticated GET /api/v1/p/:id on public page should now be 200
+    const publicResponse = await app.inject({
+      method: 'GET',
+      url: `/api/v1/p/${privatePage.page.id}`,
+    });
+    expect(publicResponse.statusCode).toBe(200);
+    const data = publicResponse.json();
+    expect(data.page.name).toBe('Internal Secret Doc');
+    expect(data.page.isPublic).toBe(true);
+    expect(data.page.visibility).toBe('public');
   });
 
   it('performs full database & record lifecycle', async () => {

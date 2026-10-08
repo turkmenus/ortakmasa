@@ -146,6 +146,11 @@ const createMcpServer = (accountId: string): McpServer => {
       name: z.string().min(1).max(512).describe('Page name'),
       parentId: z.string().length(30).optional().describe('Optional parent page ID'),
       avatar: z.string().max(512).optional().describe('Optional avatar URL'),
+      visibility: z
+        .enum(['private', 'public'])
+        .default('private')
+        .optional()
+        .describe("Page visibility ('private' for workspace members only, 'public' for web accessible link)"),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -159,6 +164,7 @@ const createMcpServer = (accountId: string): McpServer => {
         name: args.name,
         parentId: args.parentId,
         avatar: args.avatar,
+        visibility: args.visibility,
       });
 
       if (!result.ok) {
@@ -191,6 +197,10 @@ const createMcpServer = (accountId: string): McpServer => {
         .optional()
         .nullable()
         .describe('New avatar URL or null to clear'),
+      visibility: z
+        .enum(['private', 'public'])
+        .optional()
+        .describe("Change page visibility ('private' or 'public')"),
     },
     async (args) => {
       const workspace = await resolveWorkspace(accountId, args.workspaceId);
@@ -207,6 +217,7 @@ const createMcpServer = (accountId: string): McpServer => {
         {
           name: args.name,
           avatar: args.avatar,
+          visibility: args.visibility,
         }
       );
 

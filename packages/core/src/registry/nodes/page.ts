@@ -10,6 +10,7 @@ export const pageAttributesSchema = z.object({
   name: z.string(),
   avatar: z.string().nullable().optional(),
   parentId: z.string(),
+  visibility: z.enum(['private', 'public']).default('private').optional(),
 });
 
 export type PageAttributes = z.infer<typeof pageAttributesSchema>;

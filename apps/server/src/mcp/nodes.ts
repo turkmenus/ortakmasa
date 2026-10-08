@@ -1,5 +1,6 @@
 import { database } from '@colanode/server/data/database';
 import { SelectNode } from '@colanode/server/data/schema';
+import { config } from '@colanode/server/lib/config';
 import { createNode, mapNode, updateNode } from '@colanode/server/lib/nodes';
 import {
   generateId,
@@ -7,6 +8,19 @@ import {
   IdType,
   NodeType,
 } from '@colanode/core';
+
+export const buildPageWebUrl = (
+  workspaceId: string,
+  pageId: string,
+  visibility: 'private' | 'public' = 'private'
+): string => {
+  const protocol = config.web?.protocol ?? 'http';
+  const domain = config.web?.domain ?? 'localhost:4000';
+  if (visibility === 'public') {
+    return `${protocol}://${domain}/p/${pageId}`;
+  }
+  return `${protocol}://${domain}/workspace/${workspaceId}/page/${pageId}`;
+};
 
 export const requireCollaborator = (role: string): boolean => {
   return hasWorkspaceRole(role as never, 'collaborator');
@@ -18,6 +32,10 @@ export const serializeNode = (
 ): Record<string, unknown> => {
   const mapped = mapNode(node);
   const attrs = mapped as unknown as Record<string, unknown>;
+  const visibility =
+    (attrs.visibility as 'private' | 'public' | undefined) ?? 'private';
+  const url = buildPageWebUrl(node.workspace_id, node.id, visibility);
+
   return {
     id: mapped.id,
     rootId: mapped.rootId,
@@ -25,6 +43,9 @@ export const serializeNode = (
     type: mapped.type,
     name: (attrs.name as string | undefined) ?? null,
     avatar: (attrs.avatar as string | null | undefined) ?? null,
+    visibility,
+    isPublic: visibility === 'public',
+    url,
     createdAt: mapped.createdAt,
     createdBy: mapped.createdBy,
     updatedAt: mapped.updatedAt,
@@ -58,7 +79,36 @@ export const getPage = async (workspaceId: string, pageId: string) => {
     return { ok: false, error: 'Page not found' } as const;
   }
 
-  return { ok: true, page: serializeNode(node) } as const;
+  const document = await database
+    .selectFrom('documents')
+    .selectAll()
+    .where('id', '=', pageId)
+    .where('workspace_id', '=', workspaceId)
+    .executeTakeFirst();
+
+  const subpages = await database
+    .selectFrom('nodes')
+    .select(['id', 'type', 'attributes'])
+    .where('parent_id', '=', pageId)
+    .where('workspace_id', '=', workspaceId)
+    .where('type', '=', 'page' as NodeType)
+    .execute();
+
+  return {
+    ok: true,
+    page: {
+      ...serializeNode(node),
+      content: document?.content ?? null,
+      documentUpdatedAt: document?.updated_at ?? null,
+      subpages: subpages.map((sp) => {
+        const spAttrs = sp.attributes as Record<string, unknown> | null;
+        return {
+          id: sp.id,
+          name: (spAttrs?.name as string | undefined) ?? null,
+        };
+      }),
+    },
+  } as const;
 };
 
 export const createPage = async (
@@ -68,6 +118,7 @@ export const createPage = async (
     name: string;
     parentId?: string;
     avatar?: string | null;
+    visibility?: 'private' | 'public';
   }
 ) => {
   const pageId = generateId(IdType.Page);
@@ -100,6 +151,7 @@ export const createPage = async (
       name: input.name,
       parentId: parentId ?? rootId,
       avatar: input.avatar ?? null,
+      visibility: input.visibility ?? 'private',
     },
   });
 
@@ -123,6 +175,7 @@ export const updatePage = async (
   input: {
     name?: string;
     avatar?: string | null;
+    visibility?: 'private' | 'public';
   }
 ) => {
   const node = await database
@@ -152,6 +205,9 @@ export const updatePage = async (
       }
       if (input.avatar !== undefined) {
         next.avatar = input.avatar;
+      }
+      if (input.visibility !== undefined) {
+        next.visibility = input.visibility;
       }
       return next;
     },
