@@ -1,6 +1,7 @@
 import { FastifyPluginCallback } from 'fastify';
 import fp from 'fastify-plugin';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { ApiErrorCode } from '@colanode/core';
 import { createLogger } from '@colanode/server/lib/logger';
@@ -16,7 +17,7 @@ export const errorHandlerCallback: FastifyPluginCallback = (
     logger.error(error, `Error processing request`);
 
     // TODO: return detailed validation errors
-    if (hasZodFastifySchemaValidationErrors(error)) {
+    if (hasZodFastifySchemaValidationErrors(error) || error instanceof z.ZodError) {
       return reply.code(400).send({
         code: ApiErrorCode.ValidationError,
         message:

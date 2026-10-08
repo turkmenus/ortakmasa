@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 
+import { ApiErrorCode } from '@colanode/core';
 import { database } from '@colanode/server/data/database';
 import { SelectApiToken } from '@colanode/server/data/schema';
 import { generateApiTokenId, generatePatToken } from '@colanode/server/lib/tokens';
@@ -8,8 +9,8 @@ import { uuid } from '@colanode/server/lib/utils';
 
 const createTokenBodySchema = z.object({
   name: z.string().min(1).max(256),
-  workspaceId: z.string().length(30).optional(),
-  userId: z.string().length(30).optional(),
+  workspaceId: z.string().min(20).max(40).optional().nullable(),
+  userId: z.string().min(20).max(40).optional().nullable(),
   scopes: z.array(z.string()).default(['read', 'write']),
 });
 
@@ -24,16 +25,27 @@ const serializeApiToken = (
   token: SelectApiToken,
   plainToken?: string
 ): Record<string, unknown> => {
+  let scopes: string[] = ['read', 'write'];
+  if (Array.isArray(token.scopes)) {
+    scopes = token.scopes;
+  } else if (typeof token.scopes === 'string') {
+    try {
+      scopes = JSON.parse(token.scopes);
+    } catch {
+      scopes = ['read', 'write'];
+    }
+  }
+
   const result: Record<string, unknown> = {
     id: token.id,
     accountId: token.account_id,
     workspaceId: token.workspace_id,
     userId: token.user_id,
     name: token.name,
-    scopes: token.scopes,
+    scopes,
     status: token.status,
-    lastUsedAt: token.last_used_at?.toISOString() ?? null,
-    createdAt: token.created_at.toISOString(),
+    lastUsedAt: token.last_used_at ? new Date(token.last_used_at).toISOString() : null,
+    createdAt: new Date(token.created_at).toISOString(),
   };
 
   if (plainToken) {
@@ -61,7 +73,16 @@ export const tokenRoutes: FastifyPluginCallback = (instance, _, done) => {
   });
 
   instance.post('/', async (request, reply) => {
-    const body = createTokenBodySchema.parse(request.body);
+    const parseResult = createTokenBodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        code: ApiErrorCode.ValidationError,
+        message:
+          parseResult.error.issues[0]?.message || 'Invalid request body.',
+      });
+    }
+
+    const body = parseResult.data;
 
     const tokenId = generateApiTokenId();
     const generated = generatePatToken(tokenId);
